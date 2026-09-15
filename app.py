@@ -134,7 +134,7 @@ def unit_table(pages):
                          "Review_Reason":why,"Researcher_Note":""})
     return pd.DataFrame(rows)
 
-st.title("01 Brand Text Collector · v2.2")
+st.title("01 Brand Text Collector · v2.3")
 st.caption("URL만 추가 → 브랜드명 자동인식 → 크롤링 → 자동 1/0 → 연구자 수정 → 다중 브랜드 통합 CSV")
 
 if "brands" not in st.session_state:st.session_state.brands={}
@@ -170,35 +170,35 @@ if st.session_state.brands:
     pages=st.session_state.brands[selected]["pages"]
 
     st.subheader("1. 페이지 연구자 확인")
-    pages_edit=pages.copy()
-    pages_edit["Researcher_Approve"]=pd.to_numeric(pages_edit["Researcher_Final"],errors="coerce").fillna(0).astype(int).eq(1)
     ep=st.data_editor(
-        pages_edit,
-        disabled=[c for c in pages_edit if c not in ["Researcher_Approve","Researcher_Note"]],
+        pages,
+        disabled=[c for c in pages if c not in ["Researcher_Final","Researcher_Note"]],
         column_config={
-            "Researcher_Approve":st.column_config.CheckboxColumn("연구자 승인",help="체크=1(포함), 해제=0(제외)"),
+            "Researcher_Final":st.column_config.NumberColumn(
+                "연구자 최종(0/1)",help="1=포함, 0=제외",min_value=0,max_value=1,step=1,format="%d"
+            ),
             "Researcher_Note":st.column_config.TextColumn("연구자 메모")
         },
-        use_container_width=True,height=360,key=f"page_{selected}",hide_index=True)
-    ep["Researcher_Final"]=ep["Researcher_Approve"].astype(int)
-    ep=ep.drop(columns=["Researcher_Approve"])
+        use_container_width=True,height=360,key=f"page_{selected}",hide_index=True
+    )
+    ep["Researcher_Final"]=pd.to_numeric(ep["Researcher_Final"],errors="coerce").fillna(0).clip(0,1).astype(int)
     st.session_state.brands[selected]["pages"]=ep
 
     units=unit_table(ep)
     st.subheader("2. Content Unit 연구자 확인")
     if len(units):
-        units_edit=units.copy()
-        units_edit["Researcher_Approve"]=pd.to_numeric(units_edit["Researcher_Final"],errors="coerce").fillna(0).astype(int).eq(1)
         eu=st.data_editor(
-            units_edit,
-            disabled=[c for c in units_edit if c not in ["Researcher_Approve","Researcher_Note"]],
+            units,
+            disabled=[c for c in units if c not in ["Researcher_Final","Researcher_Note"]],
             column_config={
-                "Researcher_Approve":st.column_config.CheckboxColumn("연구자 승인",help="체크=1(포함), 해제=0(제외)"),
+                "Researcher_Final":st.column_config.NumberColumn(
+                    "연구자 최종(0/1)",help="1=포함, 0=제외",min_value=0,max_value=1,step=1,format="%d"
+                ),
                 "Researcher_Note":st.column_config.TextColumn("연구자 메모")
             },
-            use_container_width=True,height=420,key=f"unit_{selected}",hide_index=True)
-        eu["Researcher_Final"]=eu["Researcher_Approve"].astype(int)
-        eu=eu.drop(columns=["Researcher_Approve"])
+            use_container_width=True,height=420,key=f"unit_{selected}",hide_index=True
+        )
+        eu["Researcher_Final"]=pd.to_numeric(eu["Researcher_Final"],errors="coerce").fillna(0).clip(0,1).astype(int)
         st.session_state.brands[selected]["units"]=eu
 
     # integrated summary
