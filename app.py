@@ -134,7 +134,7 @@ def unit_table(pages):
                          "Review_Reason":why,"Researcher_Note":""})
     return pd.DataFrame(rows)
 
-st.title("01 Brand Text Collector · v2.3")
+st.title("01 Brand Text Collector · v2.4")
 st.caption("URL만 추가 → 브랜드명 자동인식 → 크롤링 → 자동 1/0 → 연구자 수정 → 다중 브랜드 통합 CSV")
 
 if "brands" not in st.session_state:st.session_state.brands={}
@@ -170,12 +170,13 @@ if st.session_state.brands:
     pages=st.session_state.brands[selected]["pages"]
 
     st.subheader("1. 페이지 연구자 확인")
+    st.caption("Auto_Include = 프로그램 자동판정 / 연구자 확인 (0/1) = 연구자가 최종 수정하는 값")
     ep=st.data_editor(
         pages,
         disabled=[c for c in pages if c not in ["Researcher_Final","Researcher_Note"]],
         column_config={
             "Researcher_Final":st.column_config.NumberColumn(
-                "연구자 최종(0/1)",help="1=포함, 0=제외",min_value=0,max_value=1,step=1,format="%d"
+                "연구자 확인 (0/1)",help="자동판정을 확인한 뒤 1=포함, 0=제외로 직접 수정",min_value=0,max_value=1,step=1,format="%d"
             ),
             "Researcher_Note":st.column_config.TextColumn("연구자 메모")
         },
@@ -186,6 +187,7 @@ if st.session_state.brands:
 
     units=unit_table(ep)
     st.subheader("2. Content Unit 연구자 확인")
+    st.caption("Auto_Include는 수정하지 않습니다. 오른쪽의 연구자 확인 (0/1) 칸을 직접 수정하세요.")
     if len(units):
         eu=st.data_editor(
             units,

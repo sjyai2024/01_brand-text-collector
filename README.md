@@ -1,13 +1,12 @@
-# 01 Brand Text Collector v2.3
+# 01 Brand Text Collector v2.4
 
-## 승인 UI 변경
-페이지와 Content Unit의 `Researcher_Final` 값을 웹 표에서 숫자 0 또는 1로 직접 수정합니다.
+표에서 두 값을 동시에 유지합니다.
 
-- 1 = 분석 포함
-- 0 = 제외
-- 허용값은 0~1 정수로 제한
-- `Auto_Include`는 자동판정 기록으로 읽기 전용 유지
-- `Researcher_Final`만 연구자가 직접 수정
-- `Researcher_Note`도 직접 입력 가능
+- Auto_Include: 프로그램 자동판정값 (읽기 전용)
+- 연구자 확인 (0/1): 연구자가 직접 수정하는 최종값
+- 연구자 메모: 직접 입력 가능
 
-기존 URL-only 입력, 브랜드명 자동 추정/수정, 다중 브랜드 누적, 통합 CSV 기능은 유지합니다.
+연구자 확인 값은 내부적으로 `Researcher_Final`에 저장되며,
+1=포함 / 0=제외입니다.
+
+즉 자동판정을 삭제하거나 덮어쓰지 않고, 자동판정과 연구자 최종판정을 나란히 기록합니다.
