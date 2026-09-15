@@ -134,19 +134,21 @@ def unit_table(pages):
                          "Review_Reason":why,"Researcher_Note":""})
     return pd.DataFrame(rows)
 
-st.title("01 Brand Text Collector · v2.6")
+st.title("01 Brand Text Collector · v2.7")
 st.caption("URL만 추가 → 브랜드명 자동인식 → 크롤링 → 자동 1/0 → 연구자 수정 → 다중 브랜드 통합 CSV")
 
 if "brands" not in st.session_state:st.session_state.brands={}
 
-url=st.text_input("공식 웹사이트 주소",placeholder="https://...",key="url_input")
+url=st.text_input("공식 웹사이트 주소",placeholder="https://...",key="url_input",
+                  help="새 브랜드를 추가할 때 이 칸의 기존 URL을 지우고 새 공식 URL을 입력하세요.")
 c_add,c_clear=st.columns([1,5])
 with c_add:
     submitted=st.button("브랜드 추가 및 크롤링",type="primary")
+def clear_url_input():
+    st.session_state["url_input"]=""
+
 with c_clear:
-    if st.button("입력 URL 지우기"):
-        st.session_state["url_input"]=""
-        st.rerun()
+    st.button("입력 URL 지우기",on_click=clear_url_input)
 if submitted and url.strip():
     try:
         with st.spinner("브랜드명 인식 및 공식 브랜드 페이지 수집 중..."):
@@ -177,7 +179,6 @@ if "pending_brand" in st.session_state:
             pages["Brand"]=name
             st.session_state.brands[name]={"pages":pages,"source_input_url":pb.get("input_url","")}
             del st.session_state["pending_brand"]
-            st.session_state["url_input"]=""
             st.rerun()
 
 if st.session_state.brands:
