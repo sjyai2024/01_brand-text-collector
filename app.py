@@ -134,20 +134,25 @@ def unit_table(pages):
                          "Review_Reason":why,"Researcher_Note":""})
     return pd.DataFrame(rows)
 
-st.title("01 Brand Text Collector · v2.4")
+st.title("01 Brand Text Collector · v2.6")
 st.caption("URL만 추가 → 브랜드명 자동인식 → 크롤링 → 자동 1/0 → 연구자 수정 → 다중 브랜드 통합 CSV")
 
 if "brands" not in st.session_state:st.session_state.brands={}
 
-with st.form("add"):
-    url=st.text_input("공식 웹사이트 주소",placeholder="https://...")
-    submitted=st.form_submit_button("브랜드 추가 및 크롤링",type="primary")
-if submitted and url:
+url=st.text_input("공식 웹사이트 주소",placeholder="https://...",key="url_input")
+c_add,c_clear=st.columns([1,5])
+with c_add:
+    submitted=st.button("브랜드 추가 및 크롤링",type="primary")
+with c_clear:
+    if st.button("입력 URL 지우기"):
+        st.session_state["url_input"]=""
+        st.rerun()
+if submitted and url.strip():
     try:
         with st.spinner("브랜드명 인식 및 공식 브랜드 페이지 수집 중..."):
             brand,pages=crawl_site(url)
         # 자동인식 결과는 연구자가 수정 가능하도록 임시 저장
-        st.session_state["pending_brand"]={"auto_name":brand,"pages":pages}
+        st.session_state["pending_brand"]={"auto_name":brand,"pages":pages,"input_url":url.strip()}
     except Exception as e:st.error(f"수집 실패: {e}")
 
 if "pending_brand" in st.session_state:
@@ -157,16 +162,31 @@ if "pending_brand" in st.session_state:
     st.caption("자동 인식이 틀리면 여기서 브랜드명을 수정한 뒤 확인하세요.")
     if st.button("브랜드명 확인 및 추가"):
         name=confirmed.strip() or pb["auto_name"]
-        pages=pb["pages"].copy()
-        pages["Brand"]=name
-        st.session_state.brands[name]={"pages":pages}
-        del st.session_state["pending_brand"]
-        st.rerun()
+        # 같은 자동 브랜드명이 이미 있으면 덮어쓰지 않고 URL 기준으로 구분
+        base_name=name
+        k=2
+        while name in st.session_state.brands:
+            existing_urls=set(st.session_state.brands[name]["pages"]["Source_URL"].astype(str)) if "pages" in st.session_state.brands[name] else set()
+            new_urls=set(pb["pages"]["Source_URL"].astype(str))
+            if existing_urls==new_urls:
+                st.warning("이미 추가된 동일 브랜드/URL입니다.")
+                break
+            name=f"{base_name} ({k})"; k+=1
+        else:
+            pages=pb["pages"].copy()
+            pages["Brand"]=name
+            st.session_state.brands[name]={"pages":pages,"source_input_url":pb.get("input_url","")}
+            del st.session_state["pending_brand"]
+            st.session_state["url_input"]=""
+            st.rerun()
 
 if st.session_state.brands:
     st.subheader("수집 브랜드")
     st.write(" · ".join(st.session_state.brands.keys()))
     selected=st.selectbox("검토할 브랜드",list(st.session_state.brands.keys()))
+    if st.button("현재 브랜드 목록에서 제거",key=f"remove_{selected}"):
+        del st.session_state.brands[selected]
+        st.rerun()
     pages=st.session_state.brands[selected]["pages"]
 
     st.subheader("1. 페이지 연구자 확인")
@@ -183,9 +203,30 @@ if st.session_state.brands:
         use_container_width=True,height=360,key=f"page_{selected}",hide_index=True
     )
     ep["Researcher_Final"]=pd.to_numeric(ep["Researcher_Final"],errors="coerce").fillna(0).clip(0,1).astype(int)
-    st.session_state.brands[selected]["pages"]=ep
 
-    units=unit_table(ep)
+    # 명시적 저장/다음 단계 버튼
+    c1,c2=st.columns([1,4])
+    with c1:
+        page_confirm=st.button("페이지 연구자 확인 완료 → 다음",type="primary",key=f"confirm_page_{selected}")
+    with c2:
+        st.caption("표의 '연구자 확인 (0/1)' 값을 수정한 뒤 이 버튼을 눌러야 Content Unit 단계로 넘어갑니다.")
+
+    if page_confirm:
+        st.session_state.brands[selected]["pages"]=ep.copy()
+        st.session_state.brands[selected]["page_confirmed"]=True
+        # 승인된 페이지가 없으면 경고
+        if ep["Researcher_Final"].sum()==0:
+            st.session_state.brands[selected]["page_confirmed"]=False
+            st.error("연구자 확인값이 1인 페이지가 없습니다. 최소 1개 페이지를 1로 수정한 뒤 다시 확인하세요.")
+        else:
+            st.success("페이지 연구자 확인이 저장되었습니다.")
+
+    if not st.session_state.brands[selected].get("page_confirmed",False):
+        st.info("페이지 연구자 확인을 완료하면 Content Unit 검토가 표시됩니다.")
+        st.stop()
+
+    confirmed_pages=st.session_state.brands[selected]["pages"]
+    units=unit_table(confirmed_pages)
     st.subheader("2. Content Unit 연구자 확인")
     st.caption("Auto_Include는 수정하지 않습니다. 오른쪽의 연구자 확인 (0/1) 칸을 직접 수정하세요.")
     if len(units):
@@ -201,13 +242,16 @@ if st.session_state.brands:
             use_container_width=True,height=420,key=f"unit_{selected}",hide_index=True
         )
         eu["Researcher_Final"]=pd.to_numeric(eu["Researcher_Final"],errors="coerce").fillna(0).clip(0,1).astype(int)
-        st.session_state.brands[selected]["units"]=eu
+        if st.button("Content Unit 연구자 확인 완료",type="primary",key=f"confirm_unit_{selected}"):
+            st.session_state.brands[selected]["units"]=eu.copy()
+            st.session_state.brands[selected]["unit_confirmed"]=True
+            st.success("Content Unit 연구자 확인이 저장되었습니다.")
 
     # integrated summary
     all_pages=[];all_units=[]
     for b,v in st.session_state.brands.items():
         all_pages.append(v["pages"])
-        if "units" in v:all_units.append(v["units"])
+        if v.get("unit_confirmed",False) and "units" in v:all_units.append(v["units"])
     P=pd.concat(all_pages,ignore_index=True) if all_pages else pd.DataFrame()
     U=pd.concat(all_units,ignore_index=True) if all_units else pd.DataFrame()
 
