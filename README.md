@@ -1,16 +1,12 @@
-# 01 Brand Text Collector v2.1
+# 01 Brand Text Collector v2.2
 
-## 브랜드명 자동 인식 개선
-자동 추정 우선순위:
-1. JSON-LD Organization / WebSite / Brand name
-2. og:site_name
-3. application-name / apple-mobile-web-app-title
-4. 페이지 title
-5. domain fallback
+## 승인 UI 수정
+Streamlit data_editor에서 숫자형 SelectboxColumn이 일부 환경에서 편집되지 않는 문제를 피하기 위해
+페이지와 Content Unit 승인 방식을 체크박스로 변경했습니다.
 
-## 연구자 확인
-크롤링 직후 자동 인식 브랜드명을 별도 확인 화면에 표시합니다.
-자동 인식이 틀리면 연구자가 직접 수정한 뒤 `브랜드명 확인 및 추가`를 눌러 확정합니다.
+- 체크 = Researcher_Final 1 (포함)
+- 체크 해제 = Researcher_Final 0 (제외)
+- 연구자 메모는 직접 입력 가능
+- 내부 CSV에는 기존과 동일하게 Researcher_Final 1/0으로 저장
 
-이후 기능은 v2.0과 동일:
-페이지 자동 1/0 → 연구자 수정 → Content Unit → 자동 1/0 → 연구자 수정 → 여러 브랜드 누적 → 통합 CSV.
+기존 v2.1의 URL-only 입력, 브랜드명 자동 추정/수정, 다중 브랜드 누적, 통합 CSV 기능은 유지합니다.
