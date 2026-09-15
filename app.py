@@ -31,11 +31,39 @@ def fetch(u):
     return s,title,r.url
 
 def infer_brand(soup,title,url):
-    # og:site_name → title → domain 순으로 자동 추정
-    og=soup.find("meta",attrs={"property":"og:site_name"}) if soup else None
-    candidates=[og.get("content","").strip() if og else "", title.split("|")[0].strip(), title.split("-")[0].strip()]
-    for c in candidates:
-        if c and 1<len(c)<60:return c
+    """브랜드명 자동 추정: JSON-LD/OG/application-name/title/domain 순."""
+    vals=[]
+    # JSON-LD Organization / WebSite name
+    try:
+        import json
+        for tag in soup.find_all("script",type="application/ld+json"):
+            try:
+                data=json.loads(tag.string or "{}")
+                items=data if isinstance(data,list) else [data]
+                for item in items:
+                    if isinstance(item,dict):
+                        if item.get("@type") in ["Organization","WebSite","Brand"] and item.get("name"):
+                            vals.append(str(item["name"]).strip())
+                        pub=item.get("publisher")
+                        if isinstance(pub,dict) and pub.get("name"): vals.append(str(pub["name"]).strip())
+            except: pass
+    except: pass
+    # metadata
+    for attrs in [
+        {"property":"og:site_name"},{"name":"application-name"},{"name":"apple-mobile-web-app-title"}
+    ]:
+        m=soup.find("meta",attrs=attrs)
+        if m and m.get("content"): vals.append(m["content"].strip())
+    # title fragments
+    if title:
+        vals += [x.strip() for x in re.split(r"\s*[|–—]\s*",title) if x.strip()]
+    # clean generic labels
+    bad={"official","official site","official website","home","홈","공식몰","온라인몰","korea","global"}
+    for v in vals:
+        vv=re.sub(r"\s+(official|official site|official website|공식몰|온라인몰)$","",v,flags=re.I).strip()
+        if 1<len(vv)<=50 and vv.lower() not in bad:
+            return vv
+    # domain fallback
     host=domain(url).split(".")[0]
     return host.replace("-"," ").replace("_"," ").strip().title()
 
@@ -106,7 +134,7 @@ def unit_table(pages):
                          "Review_Reason":why,"Researcher_Note":""})
     return pd.DataFrame(rows)
 
-st.title("01 Brand Text Collector · v2.0")
+st.title("01 Brand Text Collector · v2.1")
 st.caption("URL만 추가 → 브랜드명 자동인식 → 크롤링 → 자동 1/0 → 연구자 수정 → 다중 브랜드 통합 CSV")
 
 if "brands" not in st.session_state:st.session_state.brands={}
@@ -118,9 +146,22 @@ if submitted and url:
     try:
         with st.spinner("브랜드명 인식 및 공식 브랜드 페이지 수집 중..."):
             brand,pages=crawl_site(url)
-        st.session_state.brands[brand]={"pages":pages}
-        st.success(f"{brand} 추가 완료")
+        # 자동인식 결과는 연구자가 수정 가능하도록 임시 저장
+        st.session_state["pending_brand"]={"auto_name":brand,"pages":pages}
     except Exception as e:st.error(f"수집 실패: {e}")
+
+if "pending_brand" in st.session_state:
+    st.subheader("브랜드명 확인")
+    pb=st.session_state["pending_brand"]
+    confirmed=st.text_input("자동 인식 브랜드명",value=pb["auto_name"],key="confirmed_brand_name")
+    st.caption("자동 인식이 틀리면 여기서 브랜드명을 수정한 뒤 확인하세요.")
+    if st.button("브랜드명 확인 및 추가"):
+        name=confirmed.strip() or pb["auto_name"]
+        pages=pb["pages"].copy()
+        pages["Brand"]=name
+        st.session_state.brands[name]={"pages":pages}
+        del st.session_state["pending_brand"]
+        st.rerun()
 
 if st.session_state.brands:
     st.subheader("수집 브랜드")
